@@ -23,8 +23,7 @@ model User {
 model Group {
   id       String    @id @default(uuid())
   name     String
-  leaderId String
-  leader   User      @relation("GroupLeader", fields: [leaderId], references: [id])
+  leaders   User []   @relation("GroupLeader")
   projects Project[]
   members  User[]    @relation("GroupToUser")
 }
