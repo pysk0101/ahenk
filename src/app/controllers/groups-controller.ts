@@ -9,11 +9,11 @@ export const GroupController = {
             if (!leaderId) {
                 return NextResponse.json(createResult(false, null, "Yetkilendirilmemiş işlem"), { status: 401 });
             }
-            const { name } = await req.json();
+            const { name, isPublic } = await req.json();
 
-            await createGroupSchema.validate({ name, leaderId });
+            await createGroupSchema.validate({ name, leaderId, isPublic });
 
-            const result = await GroupService.createGroup({ name, leaderId });
+            const result = await GroupService.createGroup({ name, leaderId, isPublic });
 
             if (!result.success) {
                 return NextResponse.json(createResult(false, null, result.message || "Grup oluşturulamadı"), { status: 400 });
@@ -28,23 +28,29 @@ export const GroupController = {
             return NextResponse.json(createResult(false, null, "Grup oluşturulurken hata oluştu"), { status: 500 });
         }
     },
-    getGroupsByUserId : async (req : NextRequest)  : Promise<ResultResponse<null>>=> {
+    getGroupById: async (req: NextRequest, groupId: string): Promise<ResultResponse<null>> => {
         try {
-            const userId = req.headers.get('x-user-id');
-            if (!userId) {
+            const clientId = req.headers.get('x-user-id');
+            if (!clientId) {
                 return NextResponse.json(createResult(false, null, "Yetkilendirilmemiş işlem"), { status: 401 });
             }
-            const result = await GroupService.getGroupsByUserId(userId);
-
-            if (!result.success) {
-                return NextResponse.json(createResult(false, null, result.message || "Gruplar getirilemedi"), { status: 400 });
+            const isPermisible = await GroupService.checkGroupPermission(groupId, clientId);
+            if (!isPermisible.success) {
+                if (isPermisible.message) {
+                    return NextResponse.json(createResult(false, null, isPermisible.message), { status: 400 });
+                }
+                const limitedResult = await GroupService.getLimitedGroupById(groupId);
+                return NextResponse.json(createResult(true, limitedResult.data), { status: 200 });
             }
 
-            return NextResponse.json(createResult(true, result.data), { status: 200 });
+            const result = await GroupService.getGroupById(groupId);
+            if (!result.success) {
+                return NextResponse.json(createResult(false, null, result.message || "Grup bulunamadı"), { status: 404 });
+            }
+            return NextResponse.json(createResult(true, result.data));
         } catch (error) {
-            console.error("Get Groups Error:", error);
-            return NextResponse.json(createResult(false, null, "Gruplar getirilirken hata oluştu"), { status: 500 });    
+            console.error("Get Group Error:", error);
+            return NextResponse.json(createResult(false, null, "Grup bilgileri getirilirken hata oluştu"), { status: 500 });
         }
     }
-
 }
